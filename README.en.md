@@ -26,6 +26,23 @@
 
 <br/>
 
+## Custom changes in this fork
+
+This fork adds the following privacy-blocking and password-protection features on top of upstream. They live under `Settings → Privacy settings`, ordered: Blocklist management → Blocked users → Block keywords → Password settings.
+
+- [x] **Block keywords**: hide videos whose title/tags **contain** any keyword (literal substring match, no regex, to avoid injection risks)
+- [x] **Blocked users**: hide all videos from any uploader whose name contains any keyword (e.g. adding "小潮" blocks uploader "小潮院长")
+- [x] **Password settings**: once a password is set, Blocklist management, Blocked users and Block keywords all require it to enter
+  - Digits + letters only; set an initial password on first use; changing it requires verifying the old one; both entries must match; leave blank to remove the password
+- [x] Filtering covers **every user-video entry point**: feeds (both App and Web API), hot ranking, per-region ranking, related videos, and search results (video / user / live / article / bangumi / aggregated tabs)
+- [x] Search results apply all three filters together: blocked users + block keywords + blocklist
+- [x] Already-loaded lists are **re-filtered immediately** when keywords change — no pull-to-refresh needed
+- [x] A delete icon appears on the right of every entry in Blocked users, Blocklist and Block keywords — click to remove (long-press removal still available)
+- [x] Persistence matches the blocklist style (Hive local storage) with import/export support
+- [x] Deliverables: Windows portable build and Android APK
+
+<br/>
+
 ## Download
 
 Download a build from [Releases](https://github.com/bggRGjQaUbCoE/PiliPlus/releases), or clone the repository and build it locally.
