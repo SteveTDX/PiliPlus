@@ -32,6 +32,7 @@ This fork adds the following privacy-blocking and password-protection features o
 
 - [x] **Block keywords**: hide videos whose title/tags **contain** any keyword (literal substring match, no regex, to avoid injection risks)
 - [x] **Blocked users**: hide all videos from any uploader whose name contains any keyword (e.g. adding "小潮" blocks uploader "小潮院长")
+- [x] **Case-insensitive matching**: both text and keyword are lowercased before comparison, so keywords containing Latin letters (e.g. "小杨Johnson", "高斯Goh") match correctly (fixes mixed-case uploader names leaking through)
 - [x] **Password settings**: once a password is set, Blocklist management, Blocked users and Block keywords all require it to enter
   - Digits + letters only; set an initial password on first use; changing it requires verifying the old one; both entries must match; leave blank to remove the password
 - [x] Filtering covers **every user-video entry point**: feeds (both App and Web API), hot ranking, per-region ranking, related videos, and search results (video / user / live / article / bangumi / aggregated tabs)

@@ -13,11 +13,11 @@ abstract final class BlockKeywordFilter {
 
   static int get count => _keywords.length;
 
-  /// 匹配单段文本
+  /// 匹配单段文本（关键词同样小写化，确保含英文的关键词也能命中）
   static bool matchText(String? text) {
     if (!enabled || text == null || text.isEmpty) return false;
     final lower = text.toLowerCase();
-    return _keywords.any(lower.contains);
+    return _keywords.any((k) => lower.contains(k.toLowerCase()));
   }
 
   /// 匹配标题与若干标签

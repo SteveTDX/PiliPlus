@@ -16,11 +16,12 @@ abstract final class BlockUserFilter {
 
   static int get count => _keywords.length;
 
-  /// 匹配单段用户名称
+  /// 匹配单段用户名称（关键词同样小写化，确保含英文的关键词
+  /// 如 `小杨Johnson` 也能匹配 `小杨johnson`）
   static bool matchText(String? text) {
     if (!enabled || text == null || text.isEmpty) return false;
     final lower = text.toLowerCase();
-    return _keywords.any(lower.contains);
+    return _keywords.any((k) => lower.contains(k.toLowerCase()));
   }
 
   /// 防御式匹配动态字段：仅当值确实为字符串时才比较
