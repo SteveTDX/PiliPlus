@@ -4,6 +4,8 @@ import 'package:PiliPlus/models/model_avatar.dart';
 import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/models/search/search_esports.dart';
+import 'package:PiliPlus/utils/block_keyword.dart';
+import 'package:PiliPlus/utils/block_user.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/em.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
@@ -30,7 +32,9 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
   SearchVideoData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.whereNotBlocked((e) => e['mid'])
+        ?.where((e) => !BlockKeywordFilter.matchItem(e))
+        .where((e) => !BlockUserFilter.matchItem(e))
+        .whereNotBlocked((e) => e['mid'])
         .map((e) => SearchVideoItemModel.fromJson(e))
         .toList();
   }
@@ -47,13 +51,17 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
         switch (item['result_type']) {
           case 'video':
             list = (item['data'] as List?)
-                ?.whereNotBlocked((e) => e['mid'])
+                ?.where((e) => !BlockKeywordFilter.matchItem(e))
+                .where((e) => !BlockUserFilter.matchItem(e))
+                .whereNotBlocked((e) => e['mid'])
                 .map((e) => SearchVideoItemModel.fromJson(e))
                 .toList();
           case 'bili_user':
             if (item['data'] case List users when users.isNotEmpty) {
               for (final e in users) {
-                if (!GlobalData().blackMids.contains(e['mid'])) {
+                if (!GlobalData().blackMids.contains(e['mid']) &&
+                    !BlockUserFilter.matchItem(e) &&
+                    !BlockKeywordFilter.matchItem(e)) {
                   (searchUser ??= <SearchUser>[]).add(SearchUser.fromJson(e));
                 }
               }
@@ -61,12 +69,19 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
           case 'media_bangumi' || 'media_ft':
             if (item['data'] case List medias when medias.isNotEmpty) {
               (searchMedia ??= <SearchPgcItemModel>[]).addAll(
-                medias.map((e) => SearchPgcItemModel.fromJson(e)),
+                medias
+                    .where((e) => !BlockKeywordFilter.matchItem(e))
+                    .where((e) => !BlockUserFilter.matchItem(e))
+                    .map((e) => SearchPgcItemModel.fromJson(e)),
               );
             }
           case 'activity':
             if (item['data'] case List activities when activities.isNotEmpty) {
               for (final e in activities) {
+                if (BlockKeywordFilter.matchItem(e) ||
+                    BlockUserFilter.matchItem(e)) {
+                  continue;
+                }
                 if (e['url'] case final String url
                     when url.startsWith(HttpString.liveUrl)) {
                   final model = SearchActivity.fromJson(e, url);
@@ -77,7 +92,10 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
           case 'esports':
             if (item['data'] case List esports when esports.isNotEmpty) {
               try {
-                searchEsports = SearchEsports.fromJson(esports.first);
+                if (!BlockKeywordFilter.matchItem(esports.first) &&
+                    !BlockUserFilter.matchItem(esports.first)) {
+                  searchEsports = SearchEsports.fromJson(esports.first);
+                }
               } catch (_) {
                 if (kDebugMode) rethrow;
               }
@@ -172,7 +190,10 @@ class SearchUser {
     isLive: json['is_live'] as int?,
     roomId: json['room_id'] as int?,
     res: (json['res'] as List<dynamic>?)
-        ?.map((e) => SearchVideoItemModel.fromJson(e as Map<String, dynamic>))
+        ?.where((e) => !BlockKeywordFilter.matchItem(e))
+        .where((e) => !BlockUserFilter.matchItem(e))
+        .whereNotBlocked((e) => e['mid'])
+        .map((e) => SearchVideoItemModel.fromJson(e as Map<String, dynamic>))
         .toList(),
     officialVerify: json['official_verify'] == null
         ? null
@@ -255,6 +276,8 @@ class SearchUserData extends SearchNumData<SearchUserItemModel> {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
         ?.whereNotBlocked((e) => e['mid'])
+        .where((e) => !BlockUserFilter.matchItem(e))
+        .where((e) => !BlockKeywordFilter.matchItem(e))
         .map<SearchUserItemModel>((e) => SearchUserItemModel.fromJson(e))
         .toList();
   }
@@ -332,6 +355,8 @@ class SearchLiveData extends SearchNumData<SearchLiveItemModel> {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
         ?.whereNotBlocked((e) => e['uid'])
+        .where((e) => !BlockUserFilter.matchItem(e))
+        .where((e) => !BlockKeywordFilter.matchItem(e))
         .map((e) => SearchLiveItemModel.fromJson(e))
         .toList();
   }
@@ -410,7 +435,9 @@ class SearchPgcData extends SearchNumData<SearchPgcItemModel> {
   SearchPgcData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.map<SearchPgcItemModel>((e) => SearchPgcItemModel.fromJson(e))
+        ?.where((e) => !BlockKeywordFilter.matchItem(e))
+        .where((e) => !BlockUserFilter.matchItem(e))
+        .map<SearchPgcItemModel>((e) => SearchPgcItemModel.fromJson(e))
         .toList();
   }
 }
@@ -509,6 +536,8 @@ class SearchArticleData extends SearchNumData<SearchArticleItemModel> {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
         ?.whereNotBlocked((e) => e['mid'])
+        .where((e) => !BlockUserFilter.matchItem(e))
+        .where((e) => !BlockKeywordFilter.matchItem(e))
         .map((e) => SearchArticleItemModel.fromJson(e))
         .toList();
   }

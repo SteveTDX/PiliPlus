@@ -1,5 +1,6 @@
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/common/common_controller.dart';
+import 'package:PiliPlus/utils/block_user.dart';
 import 'package:get/get.dart';
 
 abstract class CommonListController<R, T> extends CommonController<R, T> {
@@ -38,6 +39,11 @@ abstract class CommonListController<R, T> extends CommonController<R, T> {
           return;
         }
         handleListResponse(dataList);
+        // 屏蔽用户：合并历史缓存数据后再按模型（owner.name）过滤一次，
+        // 确保推荐流"保存上次数据"合并进来的旧条目也不会残留
+        if (BlockUserFilter.enabled) {
+          dataList.removeWhere(BlockUserFilter.matchModel);
+        }
         if (isRefresh) {
           checkIsEnd(dataList.length);
           loadingState.value = Success(dataList);

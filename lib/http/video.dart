@@ -29,6 +29,8 @@ import 'package:PiliPlus/models_new/video/video_relation/data.dart';
 import 'package:PiliPlus/models_new/video/video_shot/data.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_sign.dart';
+import 'package:PiliPlus/utils/block_keyword.dart';
+import 'package:PiliPlus/utils/block_user.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -87,6 +89,10 @@ abstract final class VideoHttp {
         GlobalData().blackMids.contains(i['owner']['mid'])) {
       return true;
     }
+    // 屏蔽关键词命中（标题/标签）则隐藏
+    if (BlockKeywordFilter.matchItem(i)) return true;
+    // 屏蔽用户名称命中则隐藏
+    if (BlockUserFilter.matchItem(i)) return true;
     return false;
   }
 
@@ -106,6 +112,10 @@ abstract final class VideoHttp {
         zoneRegExp.hasMatch(i['args']['tname'])) {
       return true;
     }
+    // 屏蔽关键词命中（标题/标签）则隐藏
+    if (BlockKeywordFilter.matchItem(i)) return true;
+    // 屏蔽用户名称命中则隐藏
+    if (BlockUserFilter.matchItem(i)) return true;
     return false;
   }
 
@@ -186,6 +196,10 @@ abstract final class VideoHttp {
     if (enableFilter && i['tname'] != null && zoneRegExp.hasMatch(i['tname'])) {
       return false;
     }
+    // 屏蔽关键词命中（标题/标签）则隐藏
+    if (BlockKeywordFilter.matchItem(i)) return false;
+    // 屏蔽用户名称命中则隐藏
+    if (BlockUserFilter.matchItem(i)) return false;
     return true;
   }
 
@@ -385,7 +399,9 @@ abstract final class VideoHttp {
     );
     if (res.data['code'] == 0) {
       final items = (res.data['data'] as List?)
-          ?.whereNotBlocked((e) => e['owner']?['mid'])
+          ?.where((e) => !BlockKeywordFilter.matchItem(e))
+          .where((e) => !BlockUserFilter.matchItem(e))
+          .whereNotBlocked((e) => e['owner']?['mid'])
           .map((i) => HotVideoItemModel.fromJson(i));
       final list = RecommendFilter.applyFilterToRelatedVideos
           ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()

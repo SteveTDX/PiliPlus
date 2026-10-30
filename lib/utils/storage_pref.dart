@@ -68,6 +68,28 @@ abstract final class Pref {
   static set blackMids(Set<int> blackMidsSet) =>
       _localCache.put(LocalCacheKey.blackMids, blackMidsSet);
 
+  static Set<String> get blockKeywords => _localCache.get(
+    LocalCacheKey.blockKeywords,
+    defaultValue: <String>{},
+  );
+
+  static set blockKeywords(Set<String> blockKeywordsSet) =>
+      _localCache.put(LocalCacheKey.blockKeywords, blockKeywordsSet);
+
+  static Set<String> get blockUserNames => _localCache.get(
+    LocalCacheKey.blockUserNames,
+    defaultValue: <String>{},
+  );
+
+  static set blockUserNames(Set<String> blockUserNamesSet) =>
+      _localCache.put(LocalCacheKey.blockUserNames, blockUserNamesSet);
+
+  static String get privacyPasswordHash =>
+      _localCache.get(LocalCacheKey.privacyPassword, defaultValue: '');
+
+  static set privacyPasswordHash(String hash) =>
+      _localCache.put(LocalCacheKey.privacyPassword, hash);
+
   static RuleFilter get danmakuFilterRule => _localCache.get(
     LocalCacheKey.danmakuFilterRules,
     defaultValue: RuleFilter.empty(),

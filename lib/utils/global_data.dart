@@ -13,6 +13,10 @@ class GlobalData {
 
   Set<int> blackMids = Pref.blackMids;
 
+  Set<String> blockKeywords = Pref.blockKeywords;
+
+  Set<String> blockUserNames = Pref.blockUserNames;
+
   bool dynamicsWaterfallFlow = Pref.dynamicsWaterfallFlow;
 
   bool showMedal = Pref.showMedal;

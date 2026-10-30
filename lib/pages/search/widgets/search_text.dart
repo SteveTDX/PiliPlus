@@ -5,6 +5,7 @@ class SearchText extends StatelessWidget {
   final String text;
   final ValueChanged<String>? onTap;
   final ValueChanged<String>? onLongPress;
+  final VoidCallback? onDelete;
   final double? fontSize;
   final Color? bgColor;
   final Color? textColor;
@@ -20,6 +21,7 @@ class SearchText extends StatelessWidget {
     required this.text,
     this.onTap,
     this.onLongPress,
+    this.onDelete,
     this.fontSize,
     this.bgColor,
     this.textColor,
@@ -35,6 +37,14 @@ class SearchText extends StatelessWidget {
   Widget build(BuildContext context) {
     late final colorScheme = ColorScheme.of(context);
     final hasLongPress = onLongPress != null;
+    final textColor = this.textColor ?? colorScheme.onSurfaceVariant;
+    final textWidget = Text(
+      text,
+      maxLines: maxLines,
+      overflow: overflow,
+      textAlign: textAlign,
+      style: TextStyle(fontSize: fontSize, height: height, color: textColor),
+    );
     return Material(
       color: bgColor ?? colorScheme.onInverseSurface,
       borderRadius: borderRadius,
@@ -47,17 +57,23 @@ class SearchText extends StatelessWidget {
         borderRadius: borderRadius,
         child: Padding(
           padding: padding,
-          child: Text(
-            text,
-            maxLines: maxLines,
-            overflow: overflow,
-            textAlign: textAlign,
-            style: TextStyle(
-              fontSize: fontSize,
-              height: height,
-              color: textColor ?? colorScheme.onSurfaceVariant,
-            ),
-          ),
+          child: onDelete == null
+              ? textWidget
+              : Row(
+                  mainAxisSize: .min,
+                  children: [
+                    Flexible(child: textWidget),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: onDelete,
+                      borderRadius: borderRadius,
+                      child: Padding(
+                        padding: const .symmetric(horizontal: 3, vertical: 2),
+                        child: Icon(Icons.cancel, size: 16, color: textColor),
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

@@ -218,6 +218,10 @@ class _BlackListPageState extends State<BlackListPage>
                           setState(() {});
                         },
                       ),
+                      onDelete: () {
+                        _blackListController.blackMids.remove(mid);
+                        setState(() {});
+                      },
                       height: 1,
                       maxLines: 1,
                       fontSize: 14,

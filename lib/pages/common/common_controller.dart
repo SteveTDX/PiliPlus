@@ -30,6 +30,14 @@ mixin ScrollOrRefreshMixin {
 
 abstract class CommonController<R, T> extends GetxController
     with ScrollOrRefreshMixin {
+  /// 存活的列表控制器注册表：
+  /// 屏蔽用户关键词变更后，据此就地重滤已加载的列表数据
+  static final Set<CommonController> instances = <CommonController>{};
+
+  CommonController() {
+    instances.add(this);
+  }
+
   @override
   final ScrollController scrollController = ScrollController();
 
@@ -63,6 +71,7 @@ abstract class CommonController<R, T> extends GetxController
 
   @override
   void onClose() {
+    instances.remove(this);
     scrollController.dispose();
     super.onClose();
   }
