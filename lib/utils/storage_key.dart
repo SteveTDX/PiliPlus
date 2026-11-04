@@ -163,7 +163,8 @@ abstract final class SettingBoxKey {
       buvid = 'buvid',
       blockAtOnlyReply = 'blockAtOnlyReply',
       blockReplyAtCount = 'blockReplyAtCount',
-      filterIntro = 'filterIntro';
+      filterIntro = 'filterIntro',
+      onlyFavPlayback = 'onlyFavPlayback';
 
   static const String superChatType = 'superChatType',
       enableFullScreenSC = 'enableFullScreenSC',
@@ -261,6 +262,7 @@ abstract final class LocalCacheKey {
       blackMids = 'blackMids',
       blockKeywords = 'blockKeywords',
       blockUserNames = 'blockUserNames',
+      whiteUserNames = 'whiteUserNames',
       privacyPassword = 'privacyPassword',
       danmakuFilterRules = 'danmakuFilterRules',
       mixinKey = 'mixinKey',

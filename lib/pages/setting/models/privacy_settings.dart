@@ -5,8 +5,11 @@ import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/accounts/api_type.dart';
+import 'package:PiliPlus/utils/fav_only.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/privacy_password.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -350,6 +353,30 @@ List<SettingsModel> get privacySettings => [
     title: '黑名单管理',
     subtitle: '已拉黑用户',
     leading: const Icon(Icons.block),
+  ),
+  NormalModel(
+    onTap: (context, setState) async {
+      if (await _requirePassword(context)) {
+        Get.toNamed('/whiteListPage');
+      }
+    },
+    title: '白名单管理',
+    subtitle: '仅显示白名单内用户名称的视频\n优先级低于黑名单',
+    leading: const Icon(Icons.verified_user_outlined),
+  ),
+  SwitchModel(
+    title: '仅限收藏夹播放',
+    subtitle: '开启后只能播放账号收藏夹内的视频\n首次点击视频时会拉取收藏夹数据',
+    setKey: SettingBoxKey.onlyFavPlayback,
+    leading: const Icon(Icons.collections_bookmark_outlined),
+    onChanged: (value) {
+      GlobalData().onlyFavPlayback = value;
+      if (value) {
+        FavOnlyService.reload();
+      } else {
+        FavOnlyService.invalidate();
+      }
+    },
   ),
   NormalModel(
     onTap: (context, setState) async {

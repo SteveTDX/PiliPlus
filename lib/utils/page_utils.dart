@@ -21,6 +21,7 @@ import 'package:PiliPlus/pages/share/view.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
+import 'package:PiliPlus/utils/fav_only.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -530,7 +531,7 @@ abstract final class PageUtils {
     );
   }
 
-  static Future<void>? toVideoPage({
+  static Future<void> toVideoPage({
     VideoType videoType = VideoType.ugc,
     int? aid,
     String? bvid,
@@ -547,7 +548,24 @@ abstract final class PageUtils {
     Dimension? dimension,
     int? rootRpId,
     int? secondRpId,
-  }) {
+  }) async {
+    // 仅限收藏夹播放：开启后非收藏夹内的视频一律拦截
+    if (GlobalData().onlyFavPlayback) {
+      if (aid == null && bvid == null) {
+        SmartDialog.showToast('仅限收藏夹播放：无法识别视频，已拦截');
+        return null;
+      }
+      final resolvedBvid = bvid ?? IdUtils.av2bv(aid!);
+      final resolvedAid = aid ?? IdUtils.bv2av(bvid!);
+      final allowed = await FavOnlyService.checkAllowed(
+        aid: resolvedAid,
+        bvid: resolvedBvid,
+      );
+      if (!allowed) {
+        SmartDialog.showToast('仅限收藏夹播放：该视频不在收藏夹内');
+        return null;
+      }
+    }
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),
       'bvid': bvid ?? IdUtils.av2bv(aid!),

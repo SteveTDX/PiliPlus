@@ -84,6 +84,17 @@ abstract final class Pref {
   static set blockUserNames(Set<String> blockUserNamesSet) =>
       _localCache.put(LocalCacheKey.blockUserNames, blockUserNamesSet);
 
+  static Set<String> get whiteUserNames => _localCache.get(
+    LocalCacheKey.whiteUserNames,
+    defaultValue: <String>{},
+  );
+
+  static set whiteUserNames(Set<String> whiteUserNamesSet) =>
+      _localCache.put(LocalCacheKey.whiteUserNames, whiteUserNamesSet);
+
+  static bool get onlyFavPlayback =>
+      _setting.get(SettingBoxKey.onlyFavPlayback, defaultValue: false);
+
   static String get privacyPasswordHash =>
       _localCache.get(LocalCacheKey.privacyPassword, defaultValue: '');
 

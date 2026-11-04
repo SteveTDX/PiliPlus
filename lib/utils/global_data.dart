@@ -17,6 +17,10 @@ class GlobalData {
 
   Set<String> blockUserNames = Pref.blockUserNames;
 
+  Set<String> whiteUserNames = Pref.whiteUserNames;
+
+  bool onlyFavPlayback = Pref.onlyFavPlayback;
+
   bool dynamicsWaterfallFlow = Pref.dynamicsWaterfallFlow;
 
   bool showMedal = Pref.showMedal;
