@@ -553,7 +553,7 @@ abstract final class PageUtils {
     if (GlobalData().onlyFavPlayback) {
       if (aid == null && bvid == null) {
         SmartDialog.showToast('仅限收藏夹播放：无法识别视频，已拦截');
-        return null;
+        return;
       }
       final resolvedBvid = bvid ?? IdUtils.av2bv(aid!);
       final resolvedAid = aid ?? IdUtils.bv2av(bvid!);
@@ -563,7 +563,7 @@ abstract final class PageUtils {
       );
       if (!allowed) {
         SmartDialog.showToast('仅限收藏夹播放：该视频不在收藏夹内');
-        return null;
+        return;
       }
     }
     final arguments = {
@@ -583,7 +583,7 @@ abstract final class PageUtils {
       secondRpIdKey: ?secondRpId,
       ...?extraArguments,
     };
-    return PageUtils.toDupNamed('/videoV', arguments: arguments, off: off);
+    await PageUtils.toDupNamed('/videoV', arguments: arguments, off: off);
   }
 
   static final _pgcRegex = RegExp(r'(ep|ss)(\d+)');

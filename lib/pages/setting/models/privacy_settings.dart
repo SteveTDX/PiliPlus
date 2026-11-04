@@ -371,10 +371,10 @@ List<SettingsModel> get privacySettings => [
     leading: const Icon(Icons.collections_bookmark_outlined),
     onChanged: (value) {
       GlobalData().onlyFavPlayback = value;
+      // 切换时只清缓存；首次播放视频时再按需拉取，避免设置页突然弹 loading
+      FavOnlyService.invalidate();
       if (value) {
-        FavOnlyService.reload();
-      } else {
-        FavOnlyService.invalidate();
+        SmartDialog.showToast('已开启：首次播放视频时将获取收藏夹数据');
       }
     },
   ),
