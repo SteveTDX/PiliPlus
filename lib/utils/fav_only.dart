@@ -10,13 +10,22 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 /// 仅限收藏夹播放：加载并缓存当前账号全部收藏夹内的视频 id，
 /// 供播放入口（PageUtils.toVideoPage）做放行校验。
 ///
-/// 缓存有过期时间，避免开启功能后新收藏的视频因缓存陈旧被误拦截。
+/// 缓存按账号区分并有过期时间，避免切换账号后误放行，
+/// 或开启功能后新收藏的视频因缓存陈旧被误拦截。
 abstract final class FavOnlyService {
   static const Duration cacheTtl = Duration(minutes: 10);
+
+  /// 收藏夹并发拉取路数。实测账号可能有 26 个收藏夹 / 40 次分页请求，
+  /// 全串行会让首次点击视频等待过久；并发数保持保守以规避接口风控。
+  static const int _concurrency = 5;
+
+  /// 单个收藏夹最大页数，防止服务端 has_more 异常导致死循环。
+  static const int _maxPagePerFolder = 50;
 
   static final Set<int> _favAids = {};
   static final Set<String> _favBvids = {};
   static bool _loaded = false;
+  static int? _loadedMid;
   static DateTime? _loadedAt;
   static Future<bool>? _loading;
 
@@ -25,6 +34,7 @@ abstract final class FavOnlyService {
   /// 清空缓存（关闭功能、切换账号或需要强制刷新时调用）
   static void invalidate() {
     _loaded = false;
+    _loadedMid = null;
     _loadedAt = null;
     _favAids.clear();
     _favBvids.clear();
@@ -62,6 +72,8 @@ abstract final class FavOnlyService {
   }
 
   static Future<bool> _ensureLoaded() {
+    // 账号变化后旧缓存立即失效，避免用 A 账号收藏夹放行 B 账号的视频
+    if (_loaded && _loadedMid != Accounts.main.mid) invalidate();
     if (_loaded) {
       final at = _loadedAt;
       if (at == null || DateTime.now().difference(at) < cacheTtl) {
@@ -81,8 +93,9 @@ abstract final class FavOnlyService {
         msg = '仅限收藏夹播放需先登录账号';
         return false;
       }
+      final mid = Accounts.main.mid;
 
-      final foldersRes = await FavHttp.allFavFolders(Accounts.main.mid);
+      final foldersRes = await FavHttp.allFavFolders(mid);
       final folders = switch (foldersRes) {
         Success<FavFolderData>(:final response) =>
           response.list ?? const <FavFolderInfo>[],
@@ -93,37 +106,24 @@ abstract final class FavOnlyService {
         return false;
       }
 
-      for (final folder in folders) {
-        int pn = 1;
-        while (true) {
-          final res = await FavHttp.userFavFolderDetail(
-            mediaId: folder.id,
-            pn: pn,
-            ps: 20,
-          );
-          final data = switch (res) {
-            Success<FavDetailData>(:final response) => response,
-            _ => null,
-          };
-          if (data == null) {
-            msg = '获取收藏内容失败：$res';
+      // 按批并发拉取收藏夹；单个收藏夹内部仍按 has_more 串行翻页。
+      for (var i = 0; i < folders.length; i += _concurrency) {
+        final end = i + _concurrency > folders.length
+            ? folders.length
+            : i + _concurrency;
+        final results = await Future.wait(
+          folders.sublist(i, end).map(_loadFolder),
+        );
+        for (final error in results) {
+          if (error != null) {
+            msg = error;
             return false;
           }
-          for (final media in data.medias ?? const <FavDetailItemModel>[]) {
-            // 仅统计视频稿件（type == 2），排除番剧/文集/课程等
-            if (media.type == 2) {
-              final id = media.id;
-              if (id != null) _favAids.add(id);
-              final bv = media.bvid;
-              if (bv != null && bv.isNotEmpty) _favBvids.add(bv);
-            }
-          }
-          if (data.hasMore != true) break;
-          pn++;
         }
       }
 
       _loaded = true;
+      _loadedMid = mid;
       _loadedAt = DateTime.now();
       msg = _favAids.isEmpty
           ? '收藏夹内暂无视频，开启后无法播放任何视频'
@@ -138,6 +138,39 @@ abstract final class FavOnlyService {
       SmartDialog.dismiss(status: SmartStatus.loading);
       final tip = msg;
       if (tip != null) SmartDialog.showToast(tip);
+    }
+  }
+
+  /// 拉取单个收藏夹全部视频；返回 null 表示成功，否则返回错误信息。
+  static Future<String?> _loadFolder(FavFolderInfo folder) async {
+    int pn = 1;
+    while (true) {
+      final res = await FavHttp.userFavFolderDetail(
+        mediaId: folder.id,
+        pn: pn,
+        ps: 20,
+      );
+      final data = switch (res) {
+        Success<FavDetailData>(:final response) => response,
+        _ => null,
+      };
+      if (data == null) {
+        return '获取收藏内容失败：$res';
+      }
+      for (final media in data.medias ?? const <FavDetailItemModel>[]) {
+        // 仅统计视频稿件（type == 2），排除番剧/文集/课程/合集等
+        if (media.type == 2) {
+          final id = media.id;
+          if (id != null) _favAids.add(id);
+          final bv = media.bvid;
+          if (bv != null && bv.isNotEmpty) _favBvids.add(bv);
+        }
+      }
+      if (data.hasMore != true) return null;
+      pn++;
+      if (pn > _maxPagePerFolder) {
+        return '收藏夹分页异常（超过 $_maxPagePerFolder 页）：${folder.id}';
+      }
     }
   }
 }
