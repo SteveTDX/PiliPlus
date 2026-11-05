@@ -215,7 +215,7 @@
 
 ## 本分支修改（Fork 自定义功能）
 
-本 fork 在上游基础上新增了以下隐私屏蔽与密码保护功能，设置入口位于 `设置 → 隐私设置`，菜单顺序为：黑名单管理 → 屏蔽用户管理 → 屏蔽关键词 → 密码设置。
+本 fork 在上游基础上新增了以下隐私屏蔽、白名单与播放限制功能，设置入口位于 `设置 → 隐私设置`，菜单顺序为：黑名单管理 → 白名单管理 → 仅限收藏夹播放 → 屏蔽用户管理 → 屏蔽关键词 → 密码设置。
 
 - [x] **屏蔽关键词**：按视频标题/标签**包含匹配**（字面匹配，不使用正则，避免注入风险）屏蔽视频
 - [x] **屏蔽用户管理**：视频 UP 主名称包含列表中任一字符串即不显示其视频（如输入"小潮"可屏蔽"小潮院长"）
@@ -228,6 +228,100 @@
 - [x] 屏蔽用户管理、黑名单管理、屏蔽关键词三个界面的已录入条目右侧提供删除图标，点击即删（同时保留长按删除）
 - [x] 数据持久化：屏蔽词与屏蔽用户名保存在本地（Hive），导入/导出与黑名单管理保持一致
 - [x] 交付产物：Windows 可移植版（portable zip）与 Android APK
+- [x] **白名单管理**：仅显示白名单内 UP 主名称的视频，优先级低于黑名单（详见下文）
+- [x] **仅限收藏夹播放**：开关开启后，只允许播放当前账号收藏夹内的视频（详见下文）
+
+<br/>
+
+## 新增功能模块：白名单管理 / 仅限收藏夹播放
+
+> 对应提交 `124d788` → `451352a` → `6faeb8f` → `44621c5` → `86bc10d`，版本 `2.1.6`，共修改 9 个文件、新增约 500 行代码。
+
+### 1. 白名单管理
+
+入口：`设置 → 隐私设置 → 白名单管理`（路由 `/whiteListPage`）。界面沿用黑名单管理，支持添加、删除、导入/导出；条目持久化在 Hive（`LocalCacheKey.whiteUserNames`），运行时状态放在 `GlobalData().whiteUserNames`。
+
+过滤逻辑集中在 `lib/utils/block_user.dart` 的 `BlockUserFilter`：
+
+| 命中黑名单 | 白名单状态 | 结果 |
+| --- | --- | --- |
+| 是 | 任意 | **隐藏**（黑名单优先） |
+| 否 | 空 | 显示（白名单未启用） |
+| 否 | 非空且名称命中 | 显示 |
+| 否 | 非空但未命中 / 无名称信息 | 隐藏 |
+
+- 按 **UP 主名称**做不区分大小写的字面包含匹配（不使用正则，避免关键词被当作表达式解析）；输入 `汤山老王` 即可只放行该 UP 主的视频。
+- 兼容各接口的不同用户名字段：`owner.name` / `owner.uname` / `args.up_name` / `author` / `up_name` / `uname`；已解析的视频模型统一取 `owner.name`，与卡片显示一致。
+- 覆盖面：推荐流（App/Web）、最热榜、分区排行、相关视频、搜索结果各 tab，以及已进入页面的列表。
+- 变更后调用 `refilterLoadedLists(reload: true)`：先就地重滤，再对仍在内存中的列表触发 `onRefresh`。因为就地过滤只能"删"不能"加"，**放宽或清空**白名单时必须重新拉取，此前被隐藏的视频才能恢复。
+
+### 2. 仅限收藏夹播放
+
+入口：`设置 → 隐私设置 → 仅限收藏夹播放`，单选开关（`SettingBoxKey.onlyFavPlayback`）。开启后所有视频都必须通过校验才能进入播放页。
+
+统一拦截点位于 `lib/utils/page_utils.dart` 的 `PageUtils.toVideoPage`（改为 `async`），覆盖推荐、热门、搜索、相关视频、收藏夹、稍后再看、动态、番剧/课程等所有经由该入口的跳转：
+
+1. 用 `IdUtils.av2bv / bv2av` 同时解析出 `aid` 与 `bvid`，兼容只传其中之一的调用方；
+2. `FavOnlyService.checkAllowed()` 校验，**fail-closed**：未登录、接口失败、id 缺失、缓存未就绪一律拦截；不放行时提示「该视频不在收藏夹内」并终止跳转；
+3. **首次点击视频时才懒加载**收藏夹数据，开关切换只清缓存，避免设置页弹出全屏 loading。
+
+`lib/utils/fav_only.dart` 的加载与缓存策略：
+
+- `FavHttp.allFavFolders` 取全部收藏夹；每个夹用 `userFavFolderDetail` 按 `has_more` 串行翻页（`ps=20`），单夹上限 50 页防止服务端异常导致死循环；
+- 收藏夹之间 **5 路并发**分批拉取，兼顾首次等待时间与接口风控；
+- 仅统计 `type == 2` 的视频稿件，排除番剧 / 文集 / 课程 / 合集，同时缓存 `aid` 与 `bvid` 两个集合；
+- 缓存 **10 分钟 TTL** 且绑定账号 `mid`，切换账号立即失效、过期自动重拉，避免用 A 账号的收藏夹放行 B 账号的视频，或新收藏的视频被旧缓存误拦；
+- 并发重复请求由 `_loading` 合并；`SmartDialog` 的 loading 在 `finally` 中统一关闭后再弹提示，避免 toast 被遮住。
+
+### 3. 涉及文件
+
+| 文件 | 作用 |
+| --- | --- |
+| `lib/pages/whitelist/view.dart` | 新增白名单管理页（增删改、导入导出） |
+| `lib/pages/setting/models/privacy_settings.dart` | 设置页新增白名单入口与开关，接入密码校验 |
+| `lib/router/app_pages.dart` | 注册 `/whiteListPage` 路由 |
+| `lib/utils/block_user.dart` | 黑名单 / 白名单合并过滤、已加载列表重滤与恢复 |
+| `lib/utils/fav_only.dart` | 新增收藏夹加载、缓存与放行校验 |
+| `lib/utils/page_utils.dart` | 播放统一入口前置拦截 |
+| `lib/utils/storage_key.dart` | 新增 `LocalCacheKey.whiteUserNames`、`SettingBoxKey.onlyFavPlayback` |
+| `lib/utils/storage_pref.dart` | 新增集合 / 布尔值的读写 |
+| `lib/utils/global_data.dart` | 新增运行时状态 `whiteUserNames`、`onlyFavPlayback` |
+
+<br/>
+
+## 优化过程与验证
+
+### 迭代时间线
+
+| 提交 | 目标 | 关键改动 |
+| --- | --- | --- |
+| `124d788` | 功能落地 | 白名单页、开关、收藏夹校验服务与播放入口拦截；复用既有屏蔽链路，不改动各页面自身逻辑 |
+| `451352a` | 类型与健壮性 | 用 `Success<T>` 模式匹配替代强制类型转换；`response.list` / `data.medias` 为 null 时按空列表处理；loading 与 toast 统一放进 `finally` |
+| `6faeb8f` | 首次加载性能 | 收藏夹列表 5 路并发、夹内按 `has_more` 串行翻页；缓存按账号 `mid` 绑定并加 10 分钟 TTL；增加单夹页数上限 |
+| `44621c5` | 状态可恢复 | 白名单变更后 `reload: true`，修复"清空/放宽白名单后此前隐藏的视频仍不显示"；跳过已关闭的 controller |
+| `86bc10d` | 静态检查 | 移除未使用的 `_matchField`，`flutter analyze` 恢复零 warning |
+
+### 登录态实测
+
+为验证收藏夹接口与过滤行为，使用真实账号完成 B 站扫码登录（`qrcode/generate` → `qrcode/poll`，状态 `86101 → 86090 → 0`），仅调用只读接口，未做任何写操作。二维码在会话中以实心矩形 SVG + 600×600 PNG 生成并用 `jsQR` 自检可解码，解决缩放导致"未成功解析的二维码"的问题。
+
+| 验证项 | 结果 |
+| --- | --- |
+| 账号 | `mid 30561529` |
+| 收藏夹规模 | 26 个收藏夹 / 40 次分页请求 |
+| 视频稿件 | `type == 2` 共 510 条，去重后 `aid` / `bvid` 各 509，`missing_id = 0`、`missing_bvid = 0` |
+| id 互转 | `av2bv` / `bv2av` 510 对，0 误差 |
+| 并发加载 | 5 路并发 3.36s 完成，与串行结果一致，0 次 `-412` 风控 |
+| 名称字段 | 热门 `owner.name` 20/20、搜索 `author` 20/20 均可正确取值 |
+| 白名单过滤 | 关键词 `汤山老王` 作用于热门 20 条，仅 1 条显示；叠加同名黑名单后 0 条 |
+| 收藏夹放行 | 收藏内 `BV1W8xa6AEfH` → `true`，非收藏热门 `BV15sxS68EFq` → `false`，未知 id → `false`（fail-closed） |
+
+### 质量与产物
+
+- `flutter analyze --no-pub`：**0 error、0 warning**（仅保留仓库原有的 40 条 info 提示）。
+- 交付 APK：`PiliPlus-2.1.6-release.apk`，66.1 MB / `69,259,830` 字节，包含 `arm64-v8a` / `armeabi-v7a` / `x86_64` 三套 `libapp.so`；`apksigner verify` 通过（v2 签名）。仓库未配置 `key.properties`，故 release 回落 debug 证书，可直接安装；二进制产物不纳入版本库。
+- APK SHA256：`0cb85d282f3ba1f4788e22c8cda86248d30bd23fbc9555bd0e4de48abfb5baaa`。
+- 构建链适配（仅本机环境，未提交进仓库）：Flutter 3.47.8 / Dart 3.13.7、Gradle 9.5.0 + AGP 9、Android API 37、NDK 28.2.13676358、Android Studio JBR 21；为代理环境导入 MITM CA 到 JBR truststore，预置 gradle wrapper 与 media_kit 依赖，`jitpack.io` 不可达时改用本地 Maven 坐标，`core.longpaths` 修复 Windows 长路径导致插件源码漏检出。
 
 <br/>
 
