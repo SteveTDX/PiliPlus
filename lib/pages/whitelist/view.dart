@@ -35,8 +35,9 @@ class _WhiteListPageState extends State<WhiteListPage> {
 
   void _persist() {
     Pref.whiteUserNames = userNames;
-    // 白名单变更后立即重滤已加载的列表（推荐/热门等），无需手动刷新
-    BlockUserFilter.refilterLoadedLists();
+    // 白名单变更后重滤已加载列表，并重新拉取以恢复此前被白名单隐藏、
+    // 现在应当显示的视频（就地过滤只能删除，无法恢复）
+    BlockUserFilter.refilterLoadedLists(reload: true);
   }
 
   void _onAddUserName(String name) {

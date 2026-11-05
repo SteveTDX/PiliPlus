@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/pages/common/common_controller.dart';
@@ -94,11 +96,24 @@ abstract final class BlockUserFilter {
   static bool matchModel(Object? item) =>
       enabled && item is BaseVideoItemModel && matchText(item.owner.name);
 
-  /// 屏蔽/白名单关键词变更后，就地重滤所有仍在内存中的列表数据并刷新界面，
-  /// 使推荐流/热门等已加载列表立即生效，无需手动下拉刷新。
-  static void refilterLoadedLists() {
+  /// 屏蔽/白名单关键词变更后重滤所有仍在内存中的列表数据并刷新界面。
+  ///
+  /// [reload] 用于白名单变更：就地过滤只能删除、无法恢复此前被白名单
+  /// 隐藏的视频，因此额外触发重新拉取，保证放宽或清空白名单后列表能
+  /// 完整恢复；黑名单变更沿用就地重滤，离线时也能立即生效。
+  static void refilterLoadedLists({bool reload = false}) {
+    final controllers = CommonController.instances.toList();
+    _refilterInPlace(controllers);
+    if (!reload) return;
+    for (final controller in controllers) {
+      if (controller.isClosed) continue;
+      unawaited(controller.onRefresh());
+    }
+  }
+
+  static void _refilterInPlace(List<CommonController> controllers) {
     if (!enabled) return;
-    for (final controller in CommonController.instances.toList()) {
+    for (final controller in controllers) {
       if (controller.isClosed) continue;
       final value = controller.loadingState.value;
       if (value is! Success) continue;
