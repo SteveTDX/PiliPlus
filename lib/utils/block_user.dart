@@ -42,9 +42,6 @@ abstract final class BlockUserFilter {
     return false;
   }
 
-  /// 防御式匹配动态字段：仅当值确实为字符串时才比较
-  static bool _matchField(Object? value) => value is String && matchText(value);
-
   /// 匹配接口返回的原始条目，自动识别常见用户名字段：
   /// `owner.name` / `owner.uname`（web 推荐、最热、相关视频），
   /// `args.up_name`（app 推荐），`author`（搜索结果），
